@@ -1,0 +1,506 @@
+<title>House Price Model Benchmark</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Layout: single reading column; leaderboard first, then charts that explain it, then method notes. */
+:root {
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --fg: #111a24;
+  --fg-2: #4a5866;
+  --fg-3: #74818e;
+  --line: #dde3e9;
+  --grid: #e9edf1;
+  --accent: #2a78d6;
+  --accent-soft: #cde2fb;
+  --muted-mark: #b5c0cb;
+  --good: #0a7d3c;
+  --good-bg: #e2f4e9;
+  --warn: #9a5b00;
+  --warn-bg: #fbf0dc;
+  --bad: #b3261e;
+  --bad-bg: #fbe5e3;
+  --font-display: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f151b; --surface: #171f27; --fg: #eef2f6; --fg-2: #b4c0cc; --fg-3: #8693a0;
+    --line: #2a3540; --grid: #222c36; --accent: #3987e5; --accent-soft: #1c3a5e; --muted-mark: #4d5b69;
+    --good: #5fd08f; --good-bg: #133222; --warn: #f0b85a; --warn-bg: #3a2a10; --bad: #f28b82; --bad-bg: #3d1a18;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f151b; --surface: #171f27; --fg: #eef2f6; --fg-2: #b4c0cc; --fg-3: #8693a0;
+  --line: #2a3540; --grid: #222c36; --accent: #3987e5; --accent-soft: #1c3a5e; --muted-mark: #4d5b69;
+  --good: #5fd08f; --good-bg: #133222; --warn: #f0b85a; --warn-bg: #3a2a10; --bad: #f28b82; --bad-bg: #3d1a18;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main { max-width: 1040px; margin: 0 auto; padding-block: 40px 64px; display: grid; gap: 48px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 800; line-height: 1.1; }
+h2 { font-size: 24px; font-weight: 700; }
+h3 { font-size: 17px; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.sub { color: var(--fg-2); }
+.small { font-size: 14px; color: var(--fg-3); }
+.num { font-variant-numeric: tabular-nums; }
+section { display: grid; gap: 16px; min-width: 0; }
+.section-head { display: grid; gap: 6px; }
+
+header { display: grid; gap: 14px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; color: var(--fg-2); }
+.meta b { color: var(--fg); font-weight: 600; }
+
+.verdict { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 24px; display: grid; gap: 20px; }
+.verdict p { font-size: 18px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+.tile { display: grid; gap: 2px; padding: 14px 16px; border-radius: 8px; background: var(--bg); }
+.tile .label { font-size: 13px; color: var(--fg-2); }
+.tile .value { font-family: var(--font-body); font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.tile .note { font-size: 13px; color: var(--fg-3); }
+
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; font-variant-numeric: tabular-nums; }
+th, td { padding: 10px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+tbody tr:last-child td { border-bottom: none; }
+th { font-size: 12.5px; font-weight: 700; color: var(--fg-2); vertical-align: bottom; background: var(--surface); }
+th button { all: unset; cursor: pointer; display: inline-flex; gap: 4px; align-items: center; }
+th button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+th button .arrow { color: var(--fg-3); font-size: 10px; min-width: 8px; }
+th .unit { display: block; font-weight: 400; color: var(--fg-3); font-size: 11.5px; }
+td.model { font-weight: 600; }
+td.model .desc { display: block; font-weight: 400; color: var(--fg-3); font-size: 12.5px; white-space: normal; min-width: 180px; }
+td.rank { color: var(--fg-3); width: 1%; }
+tr.top td { background: color-mix(in srgb, var(--accent-soft) 35%, transparent); }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px; }
+.pill.good { color: var(--good); background: var(--good-bg); }
+.pill.warn { color: var(--warn); background: var(--warn-bg); }
+.pill.bad { color: var(--bad); background: var(--bad-bg); }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: grid; gap: 14px; min-width: 0; }
+.controls { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.seg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.seg button, select {
+  font: inherit; font-size: 14px; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 5px 11px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.seg button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--fg-2); font-family: var(--font-body); font-size: 12px; }
+.chart .axis-title { fill: var(--fg-3); font-size: 12px; }
+.chart .value-label { fill: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.chart .gridline { stroke: var(--grid); stroke-width: 1; }
+.chart .baseline { stroke: var(--fg-3); stroke-width: 1; }
+.tooltip {
+  position: absolute; pointer-events: none; z-index: 5; background: var(--fg); color: var(--bg);
+  font-size: 13px; padding: 7px 10px; border-radius: 6px; white-space: nowrap; font-variant-numeric: tabular-nums;
+  transform: translate(-50%, calc(-100% - 10px)); box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
+}
+.tooltip b { font-weight: 700; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--fg-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+dl.glossary { display: grid; grid-template-columns: minmax(130px, max-content) 1fr; gap: 10px 20px; margin: 0; }
+dl.glossary dt { font-weight: 700; }
+dl.glossary dd { margin: 0; color: var(--fg-2); max-width: 68ch; }
+ul.notes { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--fg-2); max-width: 72ch; }
+ul.notes b { color: var(--fg); }
+@media (max-width: 520px) {
+  dl.glossary { grid-template-columns: 1fr; gap: 2px; }
+  dl.glossary dd { margin-bottom: 10px; }
+  .verdict { padding: 18px; }
+}
+</style>
+
+<main>
+  <header>
+    <span class="eyebrow">Model benchmark · regression</span>
+    <h1>House Price Model Benchmark</h1>
+    <p class="sub">Seven algorithms trained to predict the median home value of a California census district, compared on the same held-out test set.</p>
+    <div class="meta" id="meta"></div>
+  </header>
+
+  <section class="verdict" aria-label="Summary">
+    <p id="verdict-text"></p>
+    <div class="tiles" id="tiles"></div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Leaderboard</h2>
+      <p class="sub">All error figures are in US dollars on the 20% test set the models never saw. Click a column header to sort. Ranked by test RMSE.</p>
+    </div>
+    <div class="table-wrap"><table id="board"></table></div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Compare one KPI at a time</h2>
+      <p class="sub">The highlighted bar is the best model for the chosen KPI.</p>
+    </div>
+    <div class="card">
+      <div class="controls"><div class="seg" id="metric-seg" role="group" aria-label="KPI"></div></div>
+      <div class="chart" id="bar-chart"></div>
+      <p class="small" id="bar-note"></p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Accuracy against training time</h2>
+      <p class="sub">Models toward the bottom left are both accurate and quick. Training time uses a log scale.</p>
+    </div>
+    <div class="card"><div class="chart" id="tradeoff-chart"></div></div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Where each model gets it wrong</h2>
+      <p class="sub">600 random test districts. Points on the diagonal are perfect predictions. The flat row of points at $500K is the census price cap.</p>
+    </div>
+    <div class="two">
+      <div class="card">
+        <div class="controls"><label for="scatter-model" class="small">Model</label><select id="scatter-model"></select></div>
+        <div class="chart" id="scatter-chart"></div>
+      </div>
+      <div class="card">
+        <div class="controls"><label for="imp-model" class="small">Feature importance for</label><select id="imp-model"></select></div>
+        <div class="chart" id="imp-chart"></div>
+        <p class="small">Share of total importance the model assigns to each input. Linear regression and the neural network don't produce comparable scores.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>What the KPIs mean</h2></div>
+    <div class="card">
+      <dl class="glossary">
+        <dt>RMSE</dt><dd>Root mean squared error. The typical size of a miss, with big misses penalised heavily. The main ranking metric.</dd>
+        <dt>MAE</dt><dd>Mean absolute error. The average miss in dollars. Less sensitive to a few large errors than RMSE.</dd>
+        <dt>Median error</dt><dd>Half of all predictions miss by less than this. The most intuitive “typical miss”.</dd>
+        <dt>MAPE</dt><dd>Mean absolute percentage error. The average miss as a share of the true price.</dd>
+        <dt>Within ±10%</dt><dd>Share of districts where the prediction landed within 10% of the true price.</dd>
+        <dt>R²</dt><dd>Share of the variation in prices the model explains. 1.0 is perfect; 0 means no better than guessing the average.</dd>
+        <dt>Overfit gap</dt><dd>Train R² minus test R². A large gap means the model memorised the training data and generalises less well.</dd>
+        <dt>CV RMSE</dt><dd>RMSE averaged over 5-fold cross-validation on the training set, ± one standard deviation. A check that the test result isn't luck.</dd>
+        <dt>Training time</dt><dd>Seconds to fit on 16,512 rows using 4 CPU cores.</dd>
+      </dl>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><h2>How this was run</h2></div>
+    <ul class="notes">
+      <li><b>Data.</b> <span id="data-note"></span></li>
+      <li><b>Features.</b> Location (latitude, longitude, distance to ocean), housing age, rooms, bedrooms, population, households and median income, plus three ratios: rooms per household, bedrooms per room and people per household. Missing bedroom counts (1%) are filled with the median.</li>
+      <li><b>Target.</b> Every model predicts the log of the price, then converts back. This makes errors relative, so a $50K miss on a $100K home counts more than on a $450K home. Predictions are clipped to the $15K–$500K range found in the data.</li>
+      <li><b>Scaling.</b> Linear regression and the neural network get standardised, log-compressed inputs. Without that, a handful of extreme districts produced predictions above $1.5M. Tree models don't need it.</li>
+      <li><b>Model sizes.</b> Kept deliberately small so the whole benchmark trains in under a minute. The boosted models would likely gain another 2–4% with tuning.</li>
+      <li><b>Why LightGBM as the extra method.</b> Gradient-boosted trees are usually the strongest choice for tabular data like this, and LightGBM is fast. The stacked ensemble tests whether blending the three tree models helps further.</li>
+    </ul>
+  </section>
+</main>
+
+<script id="data" type="application/json">__DATA__</script>
+<script>
+const D = JSON.parse(document.getElementById("data").textContent);
+const R = D.results.map(r => ({ ...r, gap: r.r2_train - r.r2 }));
+const byRmse = [...R].sort((a, b) => a.rmse - b.rmse);
+const best = byRmse[0];
+const SVGNS = "http://www.w3.org/2000/svg";
+
+const money = v => "$" + Math.round(v).toLocaleString("en-US");
+const kmoney = v => Math.round(v) >= 1000 ? "$" + (v / 1000).toFixed(v >= 100000 ? 0 : 1).replace(/\.0$/, "") + "K" : "$" + Math.round(v);
+const pct = (v, d = 1) => v.toFixed(d) + "%";
+const secs = v => v < 1 ? v.toFixed(2) + " s" : v.toFixed(1) + " s";
+
+function el(tag, attrs = {}, parent) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function niceTicks(max, n = 5) {
+  const raw = max / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw);
+  const t = [];
+  for (let v = 0; v <= max + 1e-9; v += step) t.push(+v.toFixed(10));
+  if (t[t.length - 1] < max) t.push(+(t[t.length - 1] + step).toFixed(10));
+  return t;
+}
+function tooltip(container) {
+  const t = document.createElement("div");
+  t.className = "tooltip"; t.hidden = true; container.appendChild(t);
+  return {
+    show(html, x, y) { t.innerHTML = html; t.hidden = false; t.style.left = x + "px"; t.style.top = y + "px"; },
+    hide() { t.hidden = true; }
+  };
+}
+function relPos(evt, container) {
+  const r = container.getBoundingClientRect();
+  return [evt.clientX - r.left, evt.clientY - r.top];
+}
+
+/* Header + verdict */
+const ds = D.dataset;
+document.getElementById("meta").innerHTML =
+  `<span><b>${ds.name}</b></span><span><b>${ds.rows.toLocaleString()}</b> districts</span>` +
+  `<span><b>${ds.train_rows.toLocaleString()}</b> train / <b>${ds.test_rows.toLocaleString()}</b> test</span>` +
+  `<span>Median price <b>${money(ds.target_median)}</b></span>`;
+document.getElementById("data-note").textContent =
+  `${ds.name}: ${ds.rows.toLocaleString()} census districts, each with a median home value. ` +
+  `${ds.capped_share.toFixed(1)}% of districts sit at the $500,001 cap the census applied, so no model can learn prices above it. ` +
+  `Split 80/20 at random with a fixed seed, so every model sees exactly the same rows.`;
+
+const lin = R.find(r => r.name === "Linear Regression");
+const stack = R.find(r => r.name === "Stacked Ensemble");
+const fastest = [...R].sort((a, b) => a.fit_seconds - b.fit_seconds)[0];
+document.getElementById("verdict-text").innerHTML =
+  `<b>${best.name}</b> is the best model. It explains <b>${pct(best.r2 * 100, 1)}</b> of the variation in prices, ` +
+  `and half its predictions land within <b>${money(best.medae)}</b> of the true value. ` +
+  `The stacked ensemble scores almost the same but takes ${Math.round(stack.fit_seconds / best.fit_seconds)}× longer to train, so it isn't worth the extra cost. ` +
+  `Tree-based boosting beats linear regression by ${pct((1 - best.rmse / lin.rmse) * 100, 0)} on RMSE.`;
+document.getElementById("tiles").innerHTML = [
+  ["Best test RMSE", money(best.rmse), best.name],
+  ["Best R²", best.r2.toFixed(3), best.name],
+  ["Within ±10% of true price", pct(best.within10, 0), `${best.name}, of test districts`],
+  ["Training time", secs(best.fit_seconds), `${best.name}, 4 CPU cores`],
+].map(([l, v, n]) => `<div class="tile"><span class="label">${l}</span><span class="value">${v}</span><span class="note">${n}</span></div>`).join("");
+
+/* Leaderboard */
+const cols = [
+  { key: "rank", label: "#", fmt: r => byRmse.indexOf(r) + 1, sortVal: r => r.rmse, cls: "rank" },
+  { key: "name", label: "Model", fmt: r => `${r.name}<span class="desc">${r.description}</span>`, cls: "model", sortVal: r => r.name },
+  { key: "rmse", label: "RMSE", unit: "test, $", fmt: r => money(r.rmse) },
+  { key: "mae", label: "MAE", unit: "test, $", fmt: r => money(r.mae) },
+  { key: "medae", label: "Median error", unit: "test, $", fmt: r => money(r.medae) },
+  { key: "mape", label: "MAPE", unit: "test", fmt: r => pct(r.mape) },
+  { key: "within10", label: "Within ±10%", unit: "test", fmt: r => pct(r.within10), desc: true },
+  { key: "r2", label: "R²", unit: "test", fmt: r => r.r2.toFixed(3), desc: true },
+  { key: "gap", label: "Overfit gap", unit: "train R² − test", fmt: r => {
+      const lvl = r.gap < 0.06 ? "good" : r.gap < 0.12 ? "warn" : "bad";
+      const word = { good: "Low", warn: "Medium", bad: "High" }[lvl];
+      return `${r.gap.toFixed(3)} <span class="pill ${lvl}">${word}</span>`; } },
+  { key: "cv", label: "CV RMSE", unit: "5-fold, $", fmt: r => `${money(r.cv_rmse_mean)} <span class="small">± ${kmoney(r.cv_rmse_std)}</span>`, sortVal: r => r.cv_rmse_mean },
+  { key: "fit_seconds", label: "Training time", unit: "seconds", fmt: r => secs(r.fit_seconds) },
+];
+let sortKey = "rmse", sortDesc = false;
+function renderBoard() {
+  const col = cols.find(c => c.key === sortKey);
+  const val = col.sortVal || (r => r[col.key]);
+  const rows = [...R].sort((a, b) => {
+    const va = val(a), vb = val(b);
+    const c = typeof va === "string" ? va.localeCompare(vb) : va - vb;
+    return sortDesc ? -c : c;
+  });
+  const head = "<thead><tr>" + cols.map(c => {
+    const active = c.key === sortKey;
+    const aria = active ? (sortDesc ? "descending" : "ascending") : "none";
+    return `<th aria-sort="${aria}"><button data-key="${c.key}">${c.label}<span class="arrow">${active ? (sortDesc ? "▼" : "▲") : ""}</span></button>${c.unit ? `<span class="unit">${c.unit}</span>` : ""}</th>`;
+  }).join("") + "</tr></thead>";
+  const body = "<tbody>" + rows.map(r =>
+    `<tr class="${r === best ? "top" : ""}">` + cols.map(c => `<td class="${c.cls || ""}">${c.fmt(r)}</td>`).join("") + "</tr>"
+  ).join("") + "</tbody>";
+  const table = document.getElementById("board");
+  table.innerHTML = head + body;
+  table.querySelectorAll("th button").forEach(b => b.addEventListener("click", () => {
+    const k = b.dataset.key;
+    if (k === sortKey) sortDesc = !sortDesc;
+    else { sortKey = k; sortDesc = !!cols.find(c => c.key === k).desc; }
+    renderBoard();
+    table.querySelector(`th button[data-key="${k}"]`).focus();
+  }));
+}
+renderBoard();
+
+/* KPI bar chart */
+const metrics = [
+  { key: "rmse", label: "RMSE", fmt: money, axis: kmoney, lowerBetter: true, note: "Test RMSE in dollars. Shorter is better." },
+  { key: "mae", label: "MAE", fmt: money, axis: kmoney, lowerBetter: true, note: "Mean absolute error in dollars. Shorter is better." },
+  { key: "medae", label: "Median error", fmt: money, axis: kmoney, lowerBetter: true, note: "Median absolute error in dollars. Shorter is better." },
+  { key: "mape", label: "MAPE", fmt: v => pct(v), axis: v => v + "%", lowerBetter: true, note: "Mean absolute percentage error. Shorter is better." },
+  { key: "within10", label: "Within ±10%", fmt: v => pct(v), axis: v => v + "%", lowerBetter: false, note: "Share of test districts predicted within 10% of the true price. Longer is better." },
+  { key: "r2", label: "R²", fmt: v => v.toFixed(3), axis: v => v.toFixed(1), lowerBetter: false, max: 1, note: "Share of price variation explained on the test set. Longer is better; 1.0 is perfect." },
+  { key: "fit_seconds", label: "Training time", fmt: secs, axis: v => v + " s", lowerBetter: true, note: "Seconds to train on 16,512 rows. Shorter is better." },
+];
+let metric = metrics[0];
+const seg = document.getElementById("metric-seg");
+metrics.forEach(m => {
+  const b = document.createElement("button");
+  b.textContent = m.label; b.setAttribute("aria-pressed", m === metric);
+  b.addEventListener("click", () => { metric = m; seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); renderBars(); });
+  seg.appendChild(b);
+});
+const barBox = document.getElementById("bar-chart");
+const barTip = tooltip(barBox);
+function renderBars() {
+  barBox.querySelector("svg")?.remove();
+  const rows = [...R].sort((a, b) => metric.lowerBetter ? a[metric.key] - b[metric.key] : b[metric.key] - a[metric.key]);
+  const W = Math.max(barBox.clientWidth, 300), narrow = W < 560;
+  const labelW = narrow ? 112 : 140, rowH = 38, barH = 20, top = 8, padR = 74;
+  const H = top + rows.length * rowH + 28;
+  const max = metric.max || Math.max(...rows.map(r => r[metric.key]));
+  const ticks = niceTicks(max, narrow ? 3 : 5);
+  const x = v => labelW + (v / ticks[ticks.length - 1]) * (W - labelW - padR);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `${metric.label} by model` });
+  ticks.forEach(t => {
+    el("line", { x1: x(t), x2: x(t), y1: top - 4, y2: H - 24, class: "gridline" }, svg);
+    el("text", { x: x(t), y: H - 8, "text-anchor": "middle" }, svg).textContent = metric.axis(t);
+  });
+  rows.forEach((r, i) => {
+    const y = top + i * rowH + (rowH - barH) / 2;
+    const isBest = i === 0;
+    el("text", { x: labelW - 10, y: y + barH / 2 + 4, "text-anchor": "end", style: isBest ? "font-weight:700;fill:var(--fg)" : "" }, svg).textContent = r.name;
+    const w = Math.max(x(r[metric.key]) - labelW, 2);
+    // Square at the baseline, 4px rounded at the data end.
+    const rr = Math.min(4, w / 2);
+    el("path", {
+      d: `M${labelW},${y} h${w - rr} a${rr},${rr} 0 0 1 ${rr},${rr} v${barH - 2 * rr} a${rr},${rr} 0 0 1 -${rr},${rr} h-${w - rr} z`,
+      fill: isBest ? "var(--accent)" : "var(--muted-mark)"
+    }, svg);
+    el("text", { x: labelW + w + 6, y: y + barH / 2 + 4, class: "value-label" }, svg).textContent = metric.fmt(r[metric.key]);
+    const hit = el("rect", { x: 0, y: top + i * rowH, width: W, height: rowH, fill: "transparent" }, svg);
+    hit.addEventListener("pointermove", e => {
+      const [px, py] = relPos(e, barBox);
+      barTip.show(`<b>${r.name}</b><br>${metric.label}: ${metric.fmt(r[metric.key])}`, px, py);
+    });
+    hit.addEventListener("pointerleave", () => barTip.hide());
+  });
+  el("line", { x1: labelW, x2: labelW, y1: top - 4, y2: H - 24, class: "baseline" }, svg);
+  barBox.prepend(svg);
+  document.getElementById("bar-note").textContent = metric.note;
+}
+
+/* Trade-off scatter: RMSE vs training time (log x) */
+const tradeBox = document.getElementById("tradeoff-chart");
+const tradeTip = tooltip(tradeBox);
+function renderTrade() {
+  tradeBox.querySelector("svg")?.remove();
+  const W = Math.max(tradeBox.clientWidth, 300), narrow = W < 560, H = narrow ? 300 : 340;
+  const m = { l: 58, r: narrow ? 16 : 24, t: 16, b: 46 };
+  const xmin = 0.01, xmax = 100;
+  const lx = v => m.l + (Math.log10(v) - Math.log10(xmin)) / (Math.log10(xmax) - Math.log10(xmin)) * (W - m.l - m.r);
+  const ymax = niceTicks(Math.max(...R.map(r => r.rmse)) * 1.05, 4);
+  const ymin = 30000, ytop = ymax[ymax.length - 1];
+  const yt = ymax.filter(t => t >= ymin).concat(ymin <= ymax[0] ? [] : [ymin]).sort((a, b) => a - b);
+  const y = v => m.t + (1 - (v - ymin) / (ytop - ymin)) * (H - m.t - m.b);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Test RMSE against training time" });
+  [...new Set(yt)].forEach(t => {
+    el("line", { x1: m.l, x2: W - m.r, y1: y(t), y2: y(t), class: "gridline" }, svg);
+    el("text", { x: m.l - 8, y: y(t) + 4, "text-anchor": "end" }, svg).textContent = kmoney(t);
+  });
+  [0.01, 0.1, 1, 10, 100].forEach(t => {
+    el("line", { x1: lx(t), x2: lx(t), y1: m.t, y2: H - m.b, class: "gridline" }, svg);
+    el("text", { x: lx(t), y: H - m.b + 18, "text-anchor": "middle" }, svg).textContent = t < 1 ? t + " s" : t + " s";
+  });
+  el("text", { x: (m.l + W - m.r) / 2, y: H - 6, "text-anchor": "middle", class: "axis-title" }, svg).textContent = "Training time (log scale)";
+  el("text", { x: 14, y: (m.t + H - m.b) / 2, "text-anchor": "middle", class: "axis-title", transform: `rotate(-90 14 ${(m.t + H - m.b) / 2})` }, svg).textContent = "Test RMSE";
+  // Label offsets chosen to avoid collisions between the clustered boosted models.
+  const place = { "LightGBM": [10, 14, "start"], "Stacked Ensemble": [-10, -10, "end"], "XGBoost": [10, -8, "start"], "Random Forest": [10, 4, "start"] };
+  R.forEach(r => {
+    const cx = lx(Math.max(r.fit_seconds, xmin)), cy = y(r.rmse), isBest = r === best;
+    el("circle", { cx, cy, r: isBest ? 7 : 6, fill: isBest ? "var(--accent)" : "var(--muted-mark)", stroke: "var(--surface)", "stroke-width": 2 }, svg);
+    const [dx, dy, anchor] = place[r.name] || [10, 4, "start"];
+    const flip = cx + 120 > W - m.r && anchor === "start";
+    el("text", { x: cx + (flip ? -dx : dx), y: cy + dy, "text-anchor": flip ? "end" : anchor, style: isBest ? "font-weight:700;fill:var(--fg)" : "" }, svg).textContent = r.name;
+    const hit = el("circle", { cx, cy, r: 16, fill: "transparent" }, svg);
+    hit.addEventListener("pointermove", () => tradeTip.show(`<b>${r.name}</b><br>RMSE ${money(r.rmse)}<br>Training ${secs(r.fit_seconds)}`, cx / W * tradeBox.clientWidth, cy / H * tradeBox.clientHeight));
+    hit.addEventListener("pointerleave", () => tradeTip.hide());
+  });
+  tradeBox.prepend(svg);
+}
+
+/* Predicted vs actual */
+const scatSel = document.getElementById("scatter-model");
+byRmse.forEach(r => scatSel.add(new Option(r.name, r.name)));
+const scatBox = document.getElementById("scatter-chart");
+const scatTip = tooltip(scatBox);
+function renderScatter() {
+  scatBox.querySelector("svg")?.remove();
+  const r = R.find(x => x.name === scatSel.value);
+  const W = Math.max(scatBox.clientWidth, 280), H = W;
+  const m = { l: 52, r: 12, t: 10, b: 44 };
+  const top = 500000, ticks = [0, 100000, 200000, 300000, 400000, 500000];
+  const x = v => m.l + v / top * (W - m.l - m.r);
+  const y = v => m.t + (1 - v / top) * (H - m.t - m.b);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Predicted against actual price for ${r.name}` });
+  ticks.forEach(t => {
+    el("line", { x1: x(t), x2: x(t), y1: m.t, y2: H - m.b, class: "gridline" }, svg);
+    el("line", { x1: m.l, x2: W - m.r, y1: y(t), y2: y(t), class: "gridline" }, svg);
+    el("text", { x: x(t), y: H - m.b + 16, "text-anchor": "middle" }, svg).textContent = kmoney(t);
+    el("text", { x: m.l - 6, y: y(t) + 4, "text-anchor": "end" }, svg).textContent = kmoney(t);
+  });
+  el("line", { x1: x(0), y1: y(0), x2: x(top), y2: y(top), stroke: "var(--fg-3)", "stroke-width": 1.5, "stroke-dasharray": "4 4" }, svg);
+  const g = el("g", {}, svg);
+  r.sample.forEach(([a, p]) => {
+    const c = el("circle", { cx: x(Math.min(a, top)), cy: y(Math.min(p, top)), r: 3, fill: "var(--accent)", "fill-opacity": 0.45 }, g);
+    c.addEventListener("pointermove", e => {
+      const [px, py] = relPos(e, scatBox);
+      scatTip.show(`Actual <b>${money(a)}</b><br>Predicted <b>${money(p)}</b><br>Off by ${pct(Math.abs(p - a) / a * 100, 0)}`, px, py);
+    });
+    c.addEventListener("pointerleave", () => scatTip.hide());
+  });
+  el("text", { x: (m.l + W - m.r) / 2, y: H - 6, "text-anchor": "middle", class: "axis-title" }, svg).textContent = "Actual price";
+  el("text", { x: 12, y: (m.t + H - m.b) / 2, "text-anchor": "middle", class: "axis-title", transform: `rotate(-90 12 ${(m.t + H - m.b) / 2})` }, svg).textContent = "Predicted price";
+  el("text", { x: x(16000), y: y(470000), class: "value-label" }, svg).textContent = `R² ${r.r2.toFixed(3)} · MAE ${kmoney(r.mae)}`;
+  scatBox.prepend(svg);
+}
+scatSel.addEventListener("change", renderScatter);
+
+/* Feature importance */
+const impSel = document.getElementById("imp-model");
+byRmse.filter(r => r.importance).forEach(r => impSel.add(new Option(r.name, r.name)));
+const impBox = document.getElementById("imp-chart");
+const impTip = tooltip(impBox);
+const prettyFeat = f => ({
+  median_income: "Median income", longitude: "Longitude", latitude: "Latitude", housing_median_age: "Housing age",
+  total_rooms: "Total rooms", total_bedrooms: "Total bedrooms", population: "Population", households: "Households",
+  rooms_per_household: "Rooms per household", bedrooms_per_room: "Bedrooms per room", people_per_household: "People per household",
+}[f] || f.replace("ocean_proximity_", "Ocean: ").replace("<1H OCEAN", "<1h from ocean").replace("INLAND", "Inland")
+  .replace("NEAR BAY", "Near bay").replace("NEAR OCEAN", "Near ocean").replace("ISLAND", "Island"));
+function renderImp() {
+  impBox.querySelector("svg")?.remove();
+  const r = R.find(x => x.name === impSel.value);
+  const rows = r.importance.slice(0, 10);
+  const W = Math.max(impBox.clientWidth, 280);
+  const labelW = 150, rowH = 30, barH = 16, padR = 52, top = 4;
+  const H = top + rows.length * rowH + 4;
+  const max = rows[0][1];
+  const x = v => labelW + v / max * (W - labelW - padR);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Top features for ${r.name}` });
+  rows.forEach(([f, v], i) => {
+    const yy = top + i * rowH + (rowH - barH) / 2;
+    el("text", { x: labelW - 8, y: yy + barH / 2 + 4, "text-anchor": "end" }, svg).textContent = prettyFeat(f);
+    const w = Math.max(x(v) - labelW, 2), rr = Math.min(4, w / 2);
+    el("path", { d: `M${labelW},${yy} h${w - rr} a${rr},${rr} 0 0 1 ${rr},${rr} v${barH - 2 * rr} a${rr},${rr} 0 0 1 -${rr},${rr} h-${w - rr} z`, fill: "var(--accent)" }, svg);
+    el("text", { x: labelW + w + 6, y: yy + barH / 2 + 4, class: "value-label" }, svg).textContent = pct(v * 100, 0);
+    const hit = el("rect", { x: 0, y: top + i * rowH, width: W, height: rowH, fill: "transparent" }, svg);
+    hit.addEventListener("pointermove", e => { const [px, py] = relPos(e, impBox); impTip.show(`<b>${prettyFeat(f)}</b><br>${pct(v * 100, 1)} of importance`, px, py); });
+    hit.addEventListener("pointerleave", () => impTip.hide());
+  });
+  el("line", { x1: labelW, x2: labelW, y1: 0, y2: H, class: "baseline" }, svg);
+  impBox.prepend(svg);
+}
+impSel.addEventListener("change", renderImp);
+
+function renderAll() { renderBars(); renderTrade(); renderScatter(); renderImp(); }
+renderAll();
+let rt;
+window.addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(renderAll, 120); });
+</script>
